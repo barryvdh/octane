@@ -38,7 +38,7 @@ class ServerProcessInspector
     public function reloadServer(): void
     {
         $this->processFactory->createProcess([
-            (new PhpExecutableFinder)->find(), 'workerman-server', 'reload',
+            (new PhpExecutableFinder)->find(), 'workerman-server', 'reload', $this->serverStateFile->path(),
         ], realpath(__DIR__.'/../../bin'), ['APP_BASE_PATH' => base_path(), 'LARAVEL_OCTANE' => 1], null, null)->run();
     }
 
@@ -49,6 +49,11 @@ class ServerProcessInspector
      */
     public function stopServer(): bool
     {
+        // Try graceful stop
+        $this->processFactory->createProcess([
+            (new PhpExecutableFinder)->find(), 'workerman-server', 'stop', $this->serverStateFile->path(),
+        ], realpath(__DIR__.'/../../bin'), ['APP_BASE_PATH' => base_path(), 'LARAVEL_OCTANE' => 1], null, null)->run();
+
         [
             'masterProcessId' => $masterProcessId,
         ] = $this->serverStateFile->read();

@@ -120,6 +120,7 @@ class StartWorkermanCommand extends Command implements SignalableCommandInterfac
             ->explode("\n")
             ->filter()
             ->each(function ($output) {
+
                 if (! is_array($debug = json_decode($output, true))) {
                     return $this->info($output);
                 }

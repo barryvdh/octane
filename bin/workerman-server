@@ -23,20 +23,21 @@ $workerman->count = $serverState['workers'] ?: 1;
 
 $workermanClient = new WorkermanClient;
 
-try {
-    $worker = tap((new Worker(
-        new ApplicationFactory($basePath), $workermanClient
-    )))->boot();
-} catch (Throwable $e) {
-    Stream::shutdown($e);
-    $connection->send($e->getMessage());
-
-    exit(1);
-}
+$worker = null;
 
 Http::requestClass(ServerRequest::class);
-$workerman->onMessage = function(ConnectionInterface $connection, ServerRequest $psr7Request) use($worker, $workermanClient)
+$workerman->onMessage = function(ConnectionInterface $connection, ServerRequest $psr7Request) use($worker, $workermanClient, $basePath)
 {
+    try {
+        $worker = tap((new Worker(
+            new ApplicationFactory($basePath), $workermanClient
+        )))->boot();
+    } catch (Throwable $e) {
+        $connection->send($e->getMessage());
+
+        exit(1);
+    }
+
     if (! $psr7Request instanceof ServerRequestInterface) {
         return;
     }
