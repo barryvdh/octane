@@ -1,0 +1,52 @@
+#!/usr/bin/env php
+<?php
+
+use Laravel\Octane\ApplicationFactory;
+use Laravel\Octane\RequestContext;
+use Laravel\Octane\Worker;
+use Laravel\Octane\Workerman\WorkermanClient;
+use Psr\Http\Message\ServerRequestInterface;
+use Workerman\Connection\ConnectionInterface;
+use Workerman\Protocols\Http;
+use Workerman\Psr7\Response;
+use Workerman\Psr7\ServerRequest;
+use Workerman\Worker as WorkermanWorker;
+
+$basePath = require __DIR__.'/bootstrap.php';
+
+$serverState = json_decode(file_get_contents(
+    $serverStateFile = $_SERVER['argv'][2]
+), true)['state'];
+
+$workerman = new WorkermanWorker("http://{$serverState['host']}:{$serverState['port']}");
+$workerman->count = $serverState['workers'] ?: 1;
+
+$workermanClient = new WorkermanClient;
+
+try {
+    $worker = tap((new Worker(
+        new ApplicationFactory($basePath), $workermanClient
+    )))->boot();
+} catch (Throwable $e) {
+    Stream::shutdown($e);
+    $connection->send($e->getMessage());
+
+    exit(1);
+}
+
+Http::requestClass(ServerRequest::class);
+$workerman->onMessage = function(ConnectionInterface $connection, ServerRequest $psr7Request) use($worker, $workermanClient)
+{
+    if (! $psr7Request instanceof ServerRequestInterface) {
+        return;
+    }
+
+    [$request, $context] = $workermanClient->marshalRequest(new RequestContext([
+        'psr7Request' => $psr7Request,
+        'connection' => $connection,
+    ]));
+
+    $worker->handle($request, $context);
+};
+
+WorkermanWorker::runAll();

@@ -25,6 +25,8 @@ use Laravel\Octane\Swoole\ServerStateFile as SwooleServerStateFile;
 use Laravel\Octane\Swoole\SignalDispatcher;
 use Laravel\Octane\Swoole\SwooleCoroutineDispatcher;
 use Laravel\Octane\Swoole\SwooleTaskDispatcher;
+use Laravel\Octane\Workerman\ServerProcessInspector as WorkermanServerProcessInspector;
+use Laravel\Octane\Workerman\ServerStateFile as WorkermanServerStateFile;
 
 class OctaneServiceProvider extends ServiceProvider
 {
@@ -74,6 +76,21 @@ class OctaneServiceProvider extends ServiceProvider
             return class_exists('Swoole\Http\Server')
                         ? new SwooleCoroutineDispatcher($app->bound('Swoole\Http\Server'))
                         : $app->make(SequentialCoroutineDispatcher::class);
+        });
+
+        $this->app->bind(WorkermanServerProcessInspector::class, function ($app) {
+            return new WorkermanServerProcessInspector(
+                $app->make(WorkermanServerStateFile::class),
+                new SymfonyProcessFactory,
+                new PosixExtension,
+            );
+        });
+
+        $this->app->bind(WorkermanServerStateFile::class, function ($app) {
+            return new WorkermanServerStateFile($app['config']->get(
+                'octane.state_file',
+                storage_path('logs/octane-server-state.json')
+            ));
         });
     }
 
@@ -167,6 +184,7 @@ class OctaneServiceProvider extends ServiceProvider
                 Commands\StartCommand::class,
                 Commands\StartRoadRunnerCommand::class,
                 Commands\StartSwooleCommand::class,
+                Commands\StartWorkermanCommand::class,
                 Commands\ReloadCommand::class,
                 Commands\StopCommand::class,
             ]);
